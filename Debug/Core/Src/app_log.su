@@ -1,8 +1,0 @@
-../Core/Src/app_log.c:24:13:make_filename	40	static
-../Core/Src/app_log.c:30:16:date_valid	16	static
-../Core/Src/app_log.c:38:16:ensure_dir	24	static
-../Core/Src/app_log.c:45:13:close_file	8	static
-../Core/Src/app_log.c:54:16:open_daily_file	128	static
-../Core/Src/app_log.c:85:6:APP_LogInit	32	static
-../Core/Src/app_log.c:91:6:APP_LogNotifyTime	24	static
-../Core/Src/app_log.c:101:6:APP_LogTask	120	static

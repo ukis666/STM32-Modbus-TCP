@@ -1,3 +1,0 @@
-../Core/Src/app_supervisor.c:8:6:APP_SupervisorInit	2
-../Core/Src/app_supervisor.c:14:6:APP_SupervisorKick	2
-../Core/Src/app_supervisor.c:20:6:APP_SupervisorTask	4

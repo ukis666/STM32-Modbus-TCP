@@ -1,2 +1,0 @@
-../Core/Src/app_watchdog.c:11:6:APP_WdgInit	4
-../Core/Src/app_watchdog.c:32:6:APP_WdgKick	2

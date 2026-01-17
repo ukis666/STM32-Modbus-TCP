@@ -1,14 +1,12 @@
 #ifndef APP_MODBUS_H
 #define APP_MODBUS_H
 
-#ifdef __cplusplus
-extern "C" {
+#include <stdint.h>
+
+#ifndef APP_MODBUS_TCP_PORT
+#define APP_MODBUS_TCP_PORT 502
 #endif
 
 void APP_ModbusTask(void *argument);
 
-#ifdef __cplusplus
-}
 #endif
-
-#endif /* APP_MODBUS_H */

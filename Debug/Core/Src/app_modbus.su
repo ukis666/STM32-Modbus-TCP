@@ -1,5 +1,0 @@
-../Core/Src/app_modbus.c:27:17:be16	16	static
-../Core/Src/app_modbus.c:32:13:put_be16	16	static
-../Core/Src/app_modbus.c:38:12:handle_pdu	312	static
-../Core/Src/app_modbus.c:143:13:serve_conn	328	static
-../Core/Src/app_modbus.c:207:6:APP_ModbusTask	32	static

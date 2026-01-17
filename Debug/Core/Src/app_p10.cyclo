@@ -1,9 +1,0 @@
-../Core/Src/app_p10.c:18:20:gpio_write	1
-../Core/Src/app_p10.c:23:13:gpio_pulse	1
-../Core/Src/app_p10.c:30:13:p10_gpio_init	1
-../Core/Src/app_p10.c:55:6:APP_P10_Init	1
-../Core/Src/app_p10.c:60:6:APP_P10_SetTime	1
-../Core/Src/app_p10.c:69:13:p10_shift_word	2
-../Core/Src/app_p10.c:78:13:p10_latch	1
-../Core/Src/app_p10.c:83:13:p10_show_once	2
-../Core/Src/app_p10.c:113:6:APP_P10_Task	1

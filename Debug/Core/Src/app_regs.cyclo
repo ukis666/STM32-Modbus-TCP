@@ -1,9 +1,0 @@
-../Core/Src/app_regs.c:7:6:APP_RegsInit	1
-../Core/Src/app_regs.c:21:16:valid_addr	1
-../Core/Src/app_regs.c:26:10:APP_RegsReadHR	2
-../Core/Src/app_regs.c:35:10:APP_RegsReadHRBlock	5
-../Core/Src/app_regs.c:47:10:APP_RegsWriteHR	2
-../Core/Src/app_regs.c:56:10:APP_RegsWriteHRBlock	5
-../Core/Src/app_regs.c:68:6:APP_RegsGetTime	3
-../Core/Src/app_regs.c:77:6:APP_RegsGetDate	4
-../Core/Src/app_regs.c:87:9:APP_RegsGetLogEnable	1
