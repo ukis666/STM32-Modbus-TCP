@@ -1,0 +1,9 @@
+../Core/Src/app_p10.c:18:20:gpio_write	16	static
+../Core/Src/app_p10.c:23:13:gpio_pulse	16	static,ignoring_inline_asm
+../Core/Src/app_p10.c:30:13:p10_gpio_init	40	static
+../Core/Src/app_p10.c:55:6:APP_P10_Init	8	static
+../Core/Src/app_p10.c:60:6:APP_P10_SetTime	16	static
+../Core/Src/app_p10.c:69:13:p10_shift_word	24	static
+../Core/Src/app_p10.c:78:13:p10_latch	8	static
+../Core/Src/app_p10.c:83:13:p10_show_once	24	static,ignoring_inline_asm
+../Core/Src/app_p10.c:113:6:APP_P10_Task	16	static

@@ -1,0 +1,10 @@
+PIN TANIMLARI:
+  Core/Inc/app_config.h icerisinde APP_P10_GPIO_* makrolari.
+
+MODBUS REGISTER MAP:
+  Core/Inc/app_config.h icerisinde APP_HR_* tanimlari.
+  Core/Src/app_regs.c icerisinde register saklama ve mutex.
+
+UYGULAMA GIRIS NOKTASI:
+  Core/Src/main.c -> USER CODE BEGIN 2: APP_SystemEarlyInit()
+  Core/Src/main.c -> StartDefaultTask -> USER CODE BEGIN 5: APP_SystemStart()

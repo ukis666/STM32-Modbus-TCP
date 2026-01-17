@@ -1,0 +1,9 @@
+../Core/Src/app_regs.c:7:6:APP_RegsInit	24	static
+../Core/Src/app_regs.c:21:16:valid_addr	16	static
+../Core/Src/app_regs.c:26:10:APP_RegsReadHR	24	static
+../Core/Src/app_regs.c:35:10:APP_RegsReadHRBlock	24	static
+../Core/Src/app_regs.c:47:10:APP_RegsWriteHR	16	static
+../Core/Src/app_regs.c:56:10:APP_RegsWriteHRBlock	24	static
+../Core/Src/app_regs.c:68:6:APP_RegsGetTime	16	static
+../Core/Src/app_regs.c:77:6:APP_RegsGetDate	24	static
+../Core/Src/app_regs.c:87:9:APP_RegsGetLogEnable	16	static

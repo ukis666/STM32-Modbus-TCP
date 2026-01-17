@@ -1,0 +1,2 @@
+../Core/Src/app_watchdog.c:11:6:APP_WdgInit	32	static
+../Core/Src/app_watchdog.c:32:6:APP_WdgKick	4	static
