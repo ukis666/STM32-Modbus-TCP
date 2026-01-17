@@ -2,42 +2,26 @@
 Debug/
 Release/
 build/
+out/
 *.o
 *.a
 *.elf
 *.map
-*.hex
-*.bin
+*.lst
 *.d
 *.su
-*.cyclo
-*.list
+*.bak
+*.swp
 
-# STM32CubeIDE / Eclipse
-.settings/
-.project
-.cproject
+# IDE / workspace metadata
 .metadata/
+.settings/
+*.launch
 
-# IDE
-.vscode/
-.idea/
+# CubeIDE / Eclipse
+.cproject
+.project
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Build outputs
-Debug/
-Release/
-build/
-*.o
-*.a
-*.elf
-*.map
-*.hex
-*.bin
-*.d
-*.su
-*.cyclo
-*.list
+# CubeMX generated backup files
+*.mxproject
+*.ioc.bak
