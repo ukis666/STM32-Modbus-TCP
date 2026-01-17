@@ -26,3 +26,18 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Build outputs
+Debug/
+Release/
+build/
+*.o
+*.a
+*.elf
+*.map
+*.hex
+*.bin
+*.d
+*.su
+*.cyclo
+*.list
