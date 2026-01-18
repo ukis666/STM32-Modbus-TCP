@@ -4,9 +4,7 @@
 #include "app_supervisor.h"
 
 #include "cmsis_os.h"
-
 #include "stm32f4xx_hal.h"
-#include "stm32f4xx_hal_tim.h"
 
 #include <string.h>
 
@@ -18,20 +16,7 @@
  * - DATA1 = ust yarim, DATA2 = alt yarim
  * - A/B satir adres
  * - C yoksa (APP_P10_HAS_C=0) 16 row'u 4 scan satirina OR fold ediyoruz.
- *
- * Eger panelinde C hatti varsa:
- *   APP_P10_HAS_C=1 yap, C pini tanimla ve kablola.
  */
-
-// ---------------- config checks ----------------
-
-#ifndef APP_P10_TIM_INSTANCE
-#error "APP_P10_TIM_INSTANCE not defined in app_config.h"
-#endif
-
-#ifndef APP_P10_SCAN_IRQ_HZ
-#error "APP_P10_SCAN_IRQ_HZ not defined in app_config.h"
-#endif
 
 // ---------------- internal geometry ----------------
 
@@ -215,71 +200,12 @@ static void p10_gpio_init(void)
 #endif
 }
 
-// ---------------- TIMER (TIM7) ----------------
-// NOTE:
-// Do NOT use preprocessor comparisons like:
-//   #if (APP_P10_TIM_INSTANCE == TIM7)
-// because TIM7 is a pointer macro ("((TIM_TypeDef*)TIM7_BASE)") and the preprocessor
-// requires an *integral* constant expression. That construct breaks compilation.
-//
-// This driver currently initializes and uses TIM7 internally.
-TIM_HandleTypeDef htim7;
-
-static uint8_t g_tim_started = 0;
-
-static void p10_tim_start(void)
-{
-  if (g_tim_started) return;
-
-  // TIM7 clock enable
-  __HAL_RCC_TIM7_CLK_ENABLE();
-
-  RCC_ClkInitTypeDef clkconfig;
-  uint32_t pFLatency;
-  HAL_RCC_GetClockConfig(&clkconfig, &pFLatency);
-
-  uint32_t uwTimclock;
-  if (clkconfig.APB1CLKDivider == RCC_HCLK_DIV1) {
-    uwTimclock = HAL_RCC_GetPCLK1Freq();
-  } else {
-    uwTimclock = 2UL * HAL_RCC_GetPCLK1Freq();
-  }
-
-  // 1MHz base
-  uint32_t presc = (uwTimclock / 1000000U);
-  if (presc == 0) presc = 1;
-  presc -= 1U;
-
-  uint32_t period = (1000000U / (uint32_t)APP_P10_SCAN_IRQ_HZ);
-  if (period == 0) period = 1;
-  period -= 1U;
-
-  htim7.Instance = TIM7;
-  htim7.Init.Prescaler = presc;
-  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim7.Init.Period = period;
-  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-
-  if (HAL_TIM_Base_Init(&htim7) != HAL_OK) {
-    // If timer init fails, we keep display blank.
-    return;
-  }
-
-  // NVIC: priority must be >= configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY
-  HAL_NVIC_SetPriority(TIM7_IRQn, 6, 0);
-  HAL_NVIC_EnableIRQ(TIM7_IRQn);
-
-  (void)HAL_TIM_Base_Start_IT(&htim7);
-  g_tim_started = 1;
-}
-
 // ---------------- scan engine ----------------
 
 static volatile uint8_t g_scan_row = 0;
 
 static inline void set_addr(uint8_t r)
 {
-  // A/B/C lines
   gpio_write(APP_P10_A_GPIO_Port, APP_P10_A_Pin, (r & 0x01) ? GPIO_PIN_SET : GPIO_PIN_RESET);
   gpio_write(APP_P10_B_GPIO_Port, APP_P10_B_Pin, (r & 0x02) ? GPIO_PIN_SET : GPIO_PIN_RESET);
 #if APP_P10_HAS_C
@@ -309,18 +235,13 @@ static inline void oe_enable(void)
 
 void APP_P10_ScanISR(void)
 {
-  // 1) Blank
   oe_disable();
 
-  // 2) Select row
   const uint8_t scan_rows = (APP_P10_HAS_C ? 8 : 4);
   uint8_t r = g_scan_row;
   if (r >= scan_rows) r = 0;
   set_addr(r);
 
-  // 3) Shift out one row
-  // For standard HUB12 mono: DATA1=upper half, DATA2=lower half.
-  // If panel is 1/4 scan without C, we fold rows (OR) to cover full 16 rows.
   const int row_top = r;
   const int row_bot = r + 8;
 
@@ -331,7 +252,6 @@ void APP_P10_ScanISR(void)
   bits_top = g_fb[row_top];
   bits_bot = g_fb[row_bot];
 #else
-  // fold: (0 with 4), (1 with 5), (2 with 6), (3 with 7) ...
   int y1 = row_top;
   int y2 = row_top + 4;
   int y3 = row_bot;
@@ -342,7 +262,6 @@ void APP_P10_ScanISR(void)
 #endif
 
 #if !APP_P10_SHIFT_MSB_FIRST
-  // if LSB-first is needed, reverse bit order in 64-bit (simple loop)
   uint64_t rt = 0, rb = 0;
   for (int i = 0; i < P10_W; ++i) {
     rt <<= 1; rb <<= 1;
@@ -353,7 +272,6 @@ void APP_P10_ScanISR(void)
   bits_bot = rb;
 #endif
 
-  // Shift P10_W bits
   for (int i = 0; i < P10_W; ++i) {
     uint8_t b1 = (uint8_t)((bits_top >> (P10_W - 1 - i)) & 1ULL);
     uint8_t b2 = (uint8_t)((bits_bot >> (P10_W - 1 - i)) & 1ULL);
@@ -364,13 +282,9 @@ void APP_P10_ScanISR(void)
     pulse(APP_P10_CLK_GPIO_Port, APP_P10_CLK_Pin);
   }
 
-  // 4) Latch
   pulse(APP_P10_LAT_GPIO_Port, APP_P10_LAT_Pin);
-
-  // 5) Display enable
   oe_enable();
 
-  // 6) Next row
   g_scan_row = (uint8_t)(r + 1);
   if (g_scan_row >= scan_rows) g_scan_row = 0;
 }
@@ -381,7 +295,6 @@ void APP_P10_Init(void)
 {
   p10_gpio_init();
   fb_clear();
-  // default screen: 000 / 00
   APP_P10_SetTime(0, 0);
 }
 
@@ -389,15 +302,12 @@ void APP_P10_Task(void *argument)
 {
   (void)argument;
 
-  // Start scan timer
-  p10_tim_start();
-
-  // On boot, render current registers once
   uint16_t m=0, s=0;
   APP_RegsGetTime(&m, &s);
   APP_P10_SetTime(m, s);
 
-  for (;;) {
+  for (;;)
+  {
     APP_SupervisorKick(APP_KICK_P10);
     osDelay(250);
   }
