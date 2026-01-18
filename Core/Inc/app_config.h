@@ -1,68 +1,121 @@
-#ifndef APP_CONFIG_H
-#define APP_CONFIG_H
-
-#include <stdint.h>
-#include "stm32f4xx_hal.h"
+#pragma once
 
 /*
- * Donanim/P10 varsayilan pin plani (74HCT245 uzerinden):
- *  - STM32 cikislari -> 74HCT245 A tarafina
- *  - 74HCT245 B tarafindan -> P10 HUB12 IDC 2x8 girisine
+ * app_config.h
  *
- * Not: Bu pinler sahada degistirilebilir. Tek yer: bu dosya.
+ * Tek noktadan konfig.
+ * - Modbus HR map (32 HR)
+ * - Watchdog / log ayarlari
+ * - P10 HUB12 pin ve tarama ayarlari
+ *
+ * Not: Bu projede CubeMX main.h icinde pin macro uretmiyor.
+ * Bu nedenle P10 pinleri burada dogrudan tanimli.
+ * Sahada kendi kablolamana gore sadece burayi degistirmen yeterli.
  */
 
-/* HUB12 kontrol hatlari */
-#define APP_P10_GPIO_LAT_PORT   GPIOD
-#define APP_P10_GPIO_LAT_PIN    GPIO_PIN_12
+#include "stm32f4xx_hal.h"
 
-#define APP_P10_GPIO_OE_PORT    GPIOD
-#define APP_P10_GPIO_OE_PIN     GPIO_PIN_13
+// ============================================================
+// MODBUS HOLDING REGISTERS
+// ============================================================
 
-#define APP_P10_GPIO_A_PORT     GPIOD
-#define APP_P10_GPIO_A_PIN      GPIO_PIN_14
+#define APP_MODBUS_HR_COUNT 32u
 
-#define APP_P10_GPIO_B_PORT     GPIOD
-#define APP_P10_GPIO_B_PIN      GPIO_PIN_15
+/* HR address map (Holding Registers)
+ *  HR0  : MMM (minutes)
+ *  HR1  : SS  (seconds)
+ *  HR2  : YYYY
+ *  HR3  : MM
+ *  HR4  : DD
+ *  HR5  : LOG_ENABLE (0/1)
+ *  HR6..HR31: reserved / payload
+ */
+#define APP_HR_MINUTES    0u
+#define APP_HR_SECONDS    1u
+#define APP_HR_YEAR       2u
+#define APP_HR_MONTH      3u
+#define APP_HR_DAY        4u
+#define APP_HR_LOG_ENABLE 5u
 
-/* HUB12 veri/saat */
-#define APP_P10_GPIO_CLK_PORT   GPIOE
-#define APP_P10_GPIO_CLK_PIN    GPIO_PIN_2
+// ============================================================
+// WATCHDOG
+// ============================================================
 
-#define APP_P10_GPIO_DATA_PORT  GPIOE
-#define APP_P10_GPIO_DATA_PIN   GPIO_PIN_6
+/* IWDG timeout (ms). 8s: sahada toleransli ve stabil. */
+#define APP_WDG_TIMEOUT_MS 8000u
 
-/* Opsiyonel ikinci veri hatti (panel varyantina gore) */
-#define APP_P10_HAS_DATA2       0
-#define APP_P10_GPIO_DATA2_PORT GPIOE
-#define APP_P10_GPIO_DATA2_PIN  GPIO_PIN_5
+// ============================================================
+// LOGGING
+// ============================================================
 
+/* SD card directory */
+#define APP_LOG_DIR "logs"
 
-/* Panel topolojisi */
-#define APP_P10_PANEL_W          32
-#define APP_P10_PANEL_H          16
-#define APP_P10_NUM_PANELS       2
-#define APP_P10_MIRROR_PANELS    0  /* 1: ayni goruntu, 0: 2 paneli yan yana (64x16) */
+/* Queue wait / task pacing */
+#define APP_LOG_SAMPLE_PERIOD_MS 250u
 
-/* Modbus TCP */
-#define APP_MODBUS_TCP_PORT      502
-#define APP_MODBUS_UNIT_ID       1
-#define APP_MODBUS_HR_COUNT      32
+/* fsync period */
+#define APP_LOG_SYNC_PERIOD_MS 1000u
 
-/* Holding Register Haritasi */
-#define APP_HR_MINUTES           0  /* MMM (0..999) */
-#define APP_HR_SECONDS           1  /* SS  (0..59) */
-#define APP_HR_YEAR              2  /* YYYY (or: 0 -> kullanma) */
-#define APP_HR_MONTH             3  /* 1..12 */
-#define APP_HR_DAY               4  /* 1..31 */
-#define APP_HR_LOG_ENABLE        5  /* 0/1 */
+/* Payload block to append into CSV (HR6..HR15) */
+#define APP_LOG_PAYLOAD_START_HR 6u
+#define APP_LOG_PAYLOAD_COUNT_HR 10u
 
-/* Log ayarlari */
-#define APP_LOG_DIR              "logs"
-#define APP_LOG_SYNC_PERIOD_MS   2000
-#define APP_LOG_SAMPLE_PERIOD_MS 1000
+// ============================================================
+// P10 HUB12
+// ============================================================
 
-/* Watchdog */
-#define APP_WDG_TIMEOUT_MS       6000
+/* 2 panel zincir (panel-1 OUT -> panel-2 IN) */
+#define APP_P10_CHAIN 2
 
-#endif /* APP_CONFIG_H */
+/* OE aktif seviye (cogu panelde active-low) */
+#define APP_P10_OE_ACTIVE_LOW 1
+
+/* Panelde C adres hatti varsa 1 yap (A/B/C) */
+#define APP_P10_HAS_C 0
+
+/* Bit kaydirma yonu. Ters cikarsa 0 yap. */
+#define APP_P10_SHIFT_MSB_FIRST 1
+
+/* Paneller swap gorunuyorsa 1 yap */
+#define APP_P10_SWAP_PANELS 0
+
+/* Her panel X aynalama gerekiyorsa 1 yap */
+#define APP_P10_MIRROR_EACH_PANEL_X 0
+
+/* P10 scan timer: TIM7 (TIM6 HAL tick icin kullaniliyor) */
+#define APP_P10_TIM_INSTANCE TIM7
+
+/* Tarama ISR frekansi (Hz). 4kHz -> flicker yok, CPU kabul edilebilir. */
+#define APP_P10_SCAN_IRQ_HZ 4000u
+
+// ---------------- P10 PIN MAP (varsayilan) ----------------
+// Ethernet (RMII) + SDIO ile cakismamasi icin GPIOD secildi.
+// Sahada degistirmen gerekirse sadece bu blok yeterli.
+
+#define APP_P10_DATA1_GPIO_Port GPIOD
+#define APP_P10_DATA1_Pin       GPIO_PIN_0
+
+#define APP_P10_DATA2_GPIO_Port GPIOD
+#define APP_P10_DATA2_Pin       GPIO_PIN_1
+
+#define APP_P10_CLK_GPIO_Port   GPIOD
+#define APP_P10_CLK_Pin         GPIO_PIN_3
+
+#define APP_P10_LAT_GPIO_Port   GPIOD
+#define APP_P10_LAT_Pin         GPIO_PIN_4
+
+#define APP_P10_OE_GPIO_Port    GPIOD
+#define APP_P10_OE_Pin          GPIO_PIN_5
+
+#define APP_P10_A_GPIO_Port     GPIOD
+#define APP_P10_A_Pin           GPIO_PIN_6
+
+#define APP_P10_B_GPIO_Port     GPIOD
+#define APP_P10_B_Pin           GPIO_PIN_7
+
+/*
+// C hatti varsa:
+#define APP_P10_C_GPIO_Port     GPIOD
+#define APP_P10_C_Pin           GPIO_PIN_8
+*/
