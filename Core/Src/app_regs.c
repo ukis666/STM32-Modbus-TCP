@@ -1,24 +1,6 @@
 #include "app_regs.h"
 #include <string.h>
 
-/*
- * Range clamps for PLC contract
- * - MMM: 0..999
- * - SS : 0..59
- */
-static inline uint16_t clamp_hr_value(uint16_t addr, uint16_t v)
-{
-  if (addr == APP_HR_MINUTES) {
-    if (v > 999u) v = 999u;
-    return v;
-  }
-  if (addr == APP_HR_SECONDS) {
-    if (v > 59u) v = 59u;
-    return v;
-  }
-  return v;
-}
-
 /* Holding registers */
 static uint16_t g_hr[APP_MODBUS_HR_COUNT];
 static osMutexId_t g_hr_mutex;
@@ -31,6 +13,17 @@ static uint8_t  s_time_dirty = 1;
 static uint8_t valid_addr(uint16_t addr)
 {
   return (addr < APP_MODBUS_HR_COUNT);
+}
+
+/* PLC contract clamp: MMM 0..999, SS 0..59 */
+static inline uint16_t clamp_hr(uint16_t addr, uint16_t v)
+{
+  if (addr == APP_HR_MINUTES) {
+    if (v > 999u) v = 999u;
+  } else if (addr == APP_HR_SECONDS) {
+    if (v > 59u) v = 59u;
+  }
+  return v;
 }
 
 /* Must be called while mutex is held */
@@ -57,7 +50,6 @@ void APP_RegsInit(void)
   g_hr[APP_HR_DAY]        = 1;
   g_hr[APP_HR_LOG_ENABLE] = 1;
 
-  /* init change tracking */
   s_last_m = 0xFFFF;
   s_last_s = 0xFFFF;
   s_time_dirty = 1;
@@ -92,10 +84,10 @@ uint16_t APP_RegsWriteHR(uint16_t addr, uint16_t value)
   if (!valid_addr(addr)) return 0;
 
   osMutexAcquire(g_hr_mutex, osWaitForever);
-  value = clamp_hr_value(addr, value);
+
+  value = clamp_hr(addr, value);
   g_hr[addr] = value;
 
-  /* if time fields touched -> mark dirty */
   if (addr == APP_HR_MINUTES || addr == APP_HR_SECONDS) {
     mark_time_dirty_locked();
   }
@@ -114,15 +106,14 @@ uint16_t APP_RegsWriteHRBlock(uint16_t addr, const uint16_t* in, uint16_t qty)
 
   for (uint16_t i = 0; i < qty; ++i) {
     const uint16_t a = (uint16_t)(addr + i);
-    uint16_t v = clamp_hr_value(a, in[i]);
+    uint16_t v = clamp_hr(a, in[i]);
     g_hr[a] = v;
   }
 
-  /* If block overlaps MMM/SS -> mark dirty */
-  const uint32_t a = (uint32_t)addr;
-  const uint32_t e = a + (uint32_t)qty; /* [a,e) */
-  if ((a <= (uint32_t)APP_HR_MINUTES && e > (uint32_t)APP_HR_MINUTES) ||
-      (a <= (uint32_t)APP_HR_SECONDS && e > (uint32_t)APP_HR_SECONDS))
+  const uint32_t a0 = (uint32_t)addr;
+  const uint32_t e0 = a0 + (uint32_t)qty;
+  if ((a0 <= (uint32_t)APP_HR_MINUTES && e0 > (uint32_t)APP_HR_MINUTES) ||
+      (a0 <= (uint32_t)APP_HR_SECONDS && e0 > (uint32_t)APP_HR_SECONDS))
   {
     mark_time_dirty_locked();
   }

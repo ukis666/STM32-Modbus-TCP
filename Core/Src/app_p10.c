@@ -9,16 +9,15 @@
 #include <stdint.h>
 
 /*
- * HUB12 single-color 32x16 driver (2 panels side-by-side => 64x16).
+ * HUB12 tek renk 32x16 panel surucu (2 panel yan yana, 64x16)
  *
- * Assumptions:
- * - Panels chained IN->OUT (APP_P10_CHAIN = 2)
- * - DATA1 = top half, DATA2 = bottom half
- * - A/B row address
- * - If no C line (APP_P10_HAS_C=0), we OR-fold 16 rows into 4 scan rows.
+ * Hedef:
+ * - Sol panel: MMM
+ * - Sag panel: (blank) + SS
+ * - Scale=2 ile okunakli buyuk rakam
+ * - APP_P10_SWAP_PANELS / APP_P10_MIRROR_EACH_PANEL_X sahada config ile duzeltilebilir
+ * - Render -> local FB, sonra IRQ lock ile commit (tearing yok)
  */
-
-// ---------------- internal geometry ----------------
 
 #define P10_PANEL_W 32
 #define P10_PANEL_H 16
@@ -28,21 +27,14 @@
 _Static_assert(P10_PANEL_H == 16, "Assumed 32x16 panels");
 _Static_assert(P10_W <= 64, "Framebuffer assumes max width 64 bits");
 
-// ---------------- framebuffer: 1bpp, row bitmask ----------------
-
 static volatile uint64_t g_fb[P10_H];
 
-static inline void fb_clear_g(void)
+static inline void fb_clear(uint64_t *fb)
 {
-  for (int y = 0; y < P10_H; ++y) {
-    g_fb[y] = 0;
-  }
+  for (int y = 0; y < P10_H; ++y) fb[y] = 0;
 }
 
-/*
- * Logical-to-physical X mapping.
- * These switches must work at runtime by only toggling macros in app_config.h.
- */
+/* Logical-to-physical X mapping: swap + mirror */
 static inline int map_x(int x)
 {
 #if APP_P10_SWAP_PANELS
@@ -59,13 +51,6 @@ static inline int map_x(int x)
   return x;
 }
 
-static inline void fb_clear(uint64_t *fb)
-{
-  for (int y = 0; y < P10_H; ++y) {
-    fb[y] = 0;
-  }
-}
-
 static inline void fb_setpx(uint64_t *fb, int x, int y, int on)
 {
   if ((unsigned)x >= (unsigned)P10_W) return;
@@ -73,15 +58,12 @@ static inline void fb_setpx(uint64_t *fb, int x, int y, int on)
 
   x = map_x(x);
 
-  /* x=0 is leftmost, store it as MSB for a natural shift loop */
   const uint64_t bit = (1ULL << (P10_W - 1 - x));
   if (on) fb[y] |= bit;
   else    fb[y] &= ~bit;
 }
 
-// ---------------- digits font (5x7) ----------------
-
-/* Each digit: 7 rows, 5 bits per row (MSB on the left) */
+/* 5x7 digit font (MSB left) */
 static const uint8_t s_digit5x7[10][7] = {
   {0x1E,0x21,0x23,0x25,0x29,0x31,0x1E}, /* 0 */
   {0x08,0x18,0x08,0x08,0x08,0x08,0x1C}, /* 1 */
@@ -112,21 +94,12 @@ static void draw_digit(uint64_t *fb, int x0, int y0, int d, int scale)
   }
 }
 
-// ---------------- layout / rendering ----------------
-
 static void render_time(uint16_t minutes, uint16_t seconds)
 {
-  /*
-   * Target layout (locked):
-   * - Left panel : MMM
-   * - Right panel: [blank digit] + SS
-   *
-   * Use large digits (scale=2) for readability.
-   */
-
   uint64_t fb[P10_H];
+  fb_clear(fb);
 
-  const int scale = 2;
+  const int scale   = 2;
   const int DIGIT_W = 5 * scale;
   const int DIGIT_H = 7 * scale;
   const int SPACE   = 0;
@@ -143,23 +116,18 @@ static void render_time(uint16_t minutes, uint16_t seconds)
   const int s1 = (seconds / 10u) % 10u;
   const int s0 = (seconds % 10u);
 
-  fb_clear(fb);
-
-  /* Left panel (0..31): MMM fits as 3*10px = 30px, keep 1px margin */
+  /* Sol panel: MMM */
   const int x_left = 1;
   draw_digit(fb, x_left + 0 * (DIGIT_W + SPACE), y0, m2, scale);
   draw_digit(fb, x_left + 1 * (DIGIT_W + SPACE), y0, m1, scale);
   draw_digit(fb, x_left + 2 * (DIGIT_W + SPACE), y0, m0, scale);
 
-  /* Right panel (32..63): [blank] + SS => total 3 digits (30px), keep 1px margin */
+  /* Sag panel: (blank) + SS */
   const int x_right = P10_PANEL_W + 1;
   draw_digit(fb, x_right + 1 * (DIGIT_W + SPACE), y0, s1, scale);
   draw_digit(fb, x_right + 2 * (DIGIT_W + SPACE), y0, s0, scale);
 
-  /*
-   * Atomic commit against the scan ISR:
-   * render into a local buffer, then copy under IRQ lock.
-   */
+  /* Atomic commit vs scan ISR */
   __disable_irq();
   for (int y = 0; y < P10_H; ++y) {
     g_fb[y] = fb[y];
@@ -172,8 +140,7 @@ void APP_P10_SetTime(uint16_t minutes, uint16_t seconds)
   render_time(minutes, seconds);
 }
 
-// ---------------- GPIO helpers ----------------
-
+/* GPIO helpers */
 static inline void gpio_write(GPIO_TypeDef* port, uint16_t pin, GPIO_PinState st)
 {
   HAL_GPIO_WritePin(port, pin, st);
@@ -181,14 +148,12 @@ static inline void gpio_write(GPIO_TypeDef* port, uint16_t pin, GPIO_PinState st
 
 static inline void pulse(GPIO_TypeDef* port, uint16_t pin)
 {
-  /* Fast toggle using BSRR for less jitter */
   port->BSRR = (uint32_t)pin;
   port->BSRR = (uint32_t)pin << 16;
 }
 
 static void p10_gpio_init(void)
 {
-  /* Enable commonly used GPIO clocks (safe even if already enabled) */
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
@@ -201,47 +166,25 @@ static void p10_gpio_init(void)
   GPIO_InitStruct.Pull  = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
 
-  /* DATA1 */
-  GPIO_InitStruct.Pin = APP_P10_DATA1_Pin;
-  HAL_GPIO_Init(APP_P10_DATA1_GPIO_Port, &GPIO_InitStruct);
-
-  /* DATA2 */
-  GPIO_InitStruct.Pin = APP_P10_DATA2_Pin;
-  HAL_GPIO_Init(APP_P10_DATA2_GPIO_Port, &GPIO_InitStruct);
-
-  /* CLK */
-  GPIO_InitStruct.Pin = APP_P10_CLK_Pin;
-  HAL_GPIO_Init(APP_P10_CLK_GPIO_Port, &GPIO_InitStruct);
-
-  /* LAT */
-  GPIO_InitStruct.Pin = APP_P10_LAT_Pin;
-  HAL_GPIO_Init(APP_P10_LAT_GPIO_Port, &GPIO_InitStruct);
-
-  /* OE */
-  GPIO_InitStruct.Pin = APP_P10_OE_Pin;
-  HAL_GPIO_Init(APP_P10_OE_GPIO_Port, &GPIO_InitStruct);
-
-  /* A */
-  GPIO_InitStruct.Pin = APP_P10_A_Pin;
-  HAL_GPIO_Init(APP_P10_A_GPIO_Port, &GPIO_InitStruct);
-
-  /* B */
-  GPIO_InitStruct.Pin = APP_P10_B_Pin;
-  HAL_GPIO_Init(APP_P10_B_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Pin = APP_P10_DATA1_Pin; HAL_GPIO_Init(APP_P10_DATA1_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Pin = APP_P10_DATA2_Pin; HAL_GPIO_Init(APP_P10_DATA2_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Pin = APP_P10_CLK_Pin;   HAL_GPIO_Init(APP_P10_CLK_GPIO_Port,   &GPIO_InitStruct);
+  GPIO_InitStruct.Pin = APP_P10_LAT_Pin;   HAL_GPIO_Init(APP_P10_LAT_GPIO_Port,   &GPIO_InitStruct);
+  GPIO_InitStruct.Pin = APP_P10_OE_Pin;    HAL_GPIO_Init(APP_P10_OE_GPIO_Port,    &GPIO_InitStruct);
+  GPIO_InitStruct.Pin = APP_P10_A_Pin;     HAL_GPIO_Init(APP_P10_A_GPIO_Port,     &GPIO_InitStruct);
+  GPIO_InitStruct.Pin = APP_P10_B_Pin;     HAL_GPIO_Init(APP_P10_B_GPIO_Port,     &GPIO_InitStruct);
 
 #if APP_P10_HAS_C
-  GPIO_InitStruct.Pin = APP_P10_C_Pin;
-  HAL_GPIO_Init(APP_P10_C_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Pin = APP_P10_C_Pin;     HAL_GPIO_Init(APP_P10_C_GPIO_Port,     &GPIO_InitStruct);
 #endif
 
-  /* Safe default levels */
   gpio_write(APP_P10_DATA1_GPIO_Port, APP_P10_DATA1_Pin, GPIO_PIN_RESET);
   gpio_write(APP_P10_DATA2_GPIO_Port, APP_P10_DATA2_Pin, GPIO_PIN_RESET);
   gpio_write(APP_P10_CLK_GPIO_Port,   APP_P10_CLK_Pin,   GPIO_PIN_RESET);
   gpio_write(APP_P10_LAT_GPIO_Port,   APP_P10_LAT_Pin,   GPIO_PIN_RESET);
 
 #if APP_P10_OE_ACTIVE_LOW
-  gpio_write(APP_P10_OE_GPIO_Port, APP_P10_OE_Pin, GPIO_PIN_SET);   /* disable display */
+  gpio_write(APP_P10_OE_GPIO_Port, APP_P10_OE_Pin, GPIO_PIN_SET);
 #else
   gpio_write(APP_P10_OE_GPIO_Port, APP_P10_OE_Pin, GPIO_PIN_RESET);
 #endif
@@ -253,8 +196,7 @@ static void p10_gpio_init(void)
 #endif
 }
 
-// ---------------- scan engine ----------------
-
+/* Scan engine */
 static volatile uint8_t g_scan_row = 0;
 
 static inline void set_addr(uint8_t r)
@@ -342,12 +284,14 @@ void APP_P10_ScanISR(void)
   if (g_scan_row >= scan_rows) g_scan_row = 0;
 }
 
-// ---------------- public init/task ----------------
-
 void APP_P10_Init(void)
 {
   p10_gpio_init();
-  fb_clear_g();
+
+  __disable_irq();
+  for (int y = 0; y < P10_H; ++y) g_fb[y] = 0;
+  __enable_irq();
+
   APP_P10_SetTime(0, 0);
 }
 
@@ -363,7 +307,7 @@ void APP_P10_Task(void *argument)
   {
     APP_SupervisorKick(APP_KICK_P10);
 
-    /* Update display as soon as PLC changes MMM/SS */
+    /* PLC yazınca panel anında güncellensin */
     if (APP_RegsConsumeChangedTime(&m, &s)) {
       APP_P10_SetTime(m, s);
     }

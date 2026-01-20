@@ -16,9 +16,10 @@ static osThreadId_t g_sup_task;
 
 void APP_SystemEarlyInit(void)
 {
-  /* * NOT: P10 Init işlemi (APP_P10_Init), main.c içerisinde
-   * TIM7 başlatılmadan hemen önce açıkça çağrılmaktadır.
-   * Çift başlatmayı (double init) önlemek için buradan kaldırılmıştır.
+  /*
+   * NOT:
+   * P10 init (APP_P10_Init) main.c içinde TIM7 Start_IT'den hemen önce çağrılıyor.
+   * Double-init olmaması için burada çağrı YOK.
    */
 }
 
@@ -32,7 +33,7 @@ void APP_SystemStart(void)
   /* Start watchdog */
   APP_WdgInit(APP_WDG_TIMEOUT_MS);
 
-  /* Modbus Task Stack: 3072 (LwIP için artırıldı) */
+  /* Modbus Task Stack: 3072 (LwIP + local bufferlar için şart) */
   const osThreadAttr_t modbus_attr = { .name = "modbus", .stack_size = 3072, .priority = (osPriority_t)osPriorityAboveNormal };
   const osThreadAttr_t log_attr    = { .name = "log",    .stack_size = 1536, .priority = (osPriority_t)osPriorityNormal };
   const osThreadAttr_t p10_attr    = { .name = "p10",    .stack_size = 1024, .priority = (osPriority_t)osPriorityHigh };
