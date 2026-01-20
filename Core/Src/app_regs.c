@@ -1,6 +1,24 @@
 #include "app_regs.h"
 #include <string.h>
 
+/*
+ * Range clamps for PLC contract
+ * - MMM: 0..999
+ * - SS : 0..59
+ */
+static inline uint16_t clamp_hr_value(uint16_t addr, uint16_t v)
+{
+  if (addr == APP_HR_MINUTES) {
+    if (v > 999u) v = 999u;
+    return v;
+  }
+  if (addr == APP_HR_SECONDS) {
+    if (v > 59u) v = 59u;
+    return v;
+  }
+  return v;
+}
+
 /* Holding registers */
 static uint16_t g_hr[APP_MODBUS_HR_COUNT];
 static osMutexId_t g_hr_mutex;
@@ -74,6 +92,7 @@ uint16_t APP_RegsWriteHR(uint16_t addr, uint16_t value)
   if (!valid_addr(addr)) return 0;
 
   osMutexAcquire(g_hr_mutex, osWaitForever);
+  value = clamp_hr_value(addr, value);
   g_hr[addr] = value;
 
   /* if time fields touched -> mark dirty */
@@ -93,7 +112,11 @@ uint16_t APP_RegsWriteHRBlock(uint16_t addr, const uint16_t* in, uint16_t qty)
 
   osMutexAcquire(g_hr_mutex, osWaitForever);
 
-  for (uint16_t i = 0; i < qty; ++i) g_hr[addr + i] = in[i];
+  for (uint16_t i = 0; i < qty; ++i) {
+    const uint16_t a = (uint16_t)(addr + i);
+    uint16_t v = clamp_hr_value(a, in[i]);
+    g_hr[a] = v;
+  }
 
   /* If block overlaps MMM/SS -> mark dirty */
   const uint32_t a = (uint32_t)addr;
