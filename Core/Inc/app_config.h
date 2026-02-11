@@ -89,33 +89,40 @@
 /* Tarama ISR frekansi (Hz). 4kHz -> flicker yok, CPU kabul edilebilir. */
 #define APP_P10_SCAN_IRQ_HZ 4000u
 
-// ---------------- P10 PIN MAP (varsayilan) ----------------
-// Ethernet (RMII) + SDIO ile cakismamasi icin GPIOD secildi.
-// Sahada degistirmen gerekirse sadece bu blok yeterli.
+// ---------------- P10 PIN MAP (Black Board P4/P5 Header) ----------------
+// Bu kartta P10 hatlari P4/P5 header uzerinden Port A/B'ye alindi.
+// Baglanti yaparken pin numarasi saymak yerine kart ustu etiketleri (A6/A4/A5/A3/A0, B1/B0) ile git.
 
-#define APP_P10_DATA1_GPIO_Port GPIOD
-#define APP_P10_DATA1_Pin       GPIO_PIN_0
+// DATA1 (R1 / ust grup)
+#define APP_P10_DATA1_GPIO_Port GPIOA
+#define APP_P10_DATA1_Pin       GPIO_PIN_6   // P4: A6
 
-#define APP_P10_DATA2_GPIO_Port GPIOD
-#define APP_P10_DATA2_Pin       GPIO_PIN_1
+// DATA2 (R2 / alt grup)
+#define APP_P10_DATA2_GPIO_Port GPIOA
+#define APP_P10_DATA2_Pin       GPIO_PIN_4   // P4: A4
 
-#define APP_P10_CLK_GPIO_Port   GPIOD
-#define APP_P10_CLK_Pin         GPIO_PIN_3
+// CLK
+#define APP_P10_CLK_GPIO_Port   GPIOA
+#define APP_P10_CLK_Pin         GPIO_PIN_5   // P4: A5
 
-#define APP_P10_LAT_GPIO_Port   GPIOD
-#define APP_P10_LAT_Pin         GPIO_PIN_4
+// LAT / STB
+#define APP_P10_LAT_GPIO_Port   GPIOB
+#define APP_P10_LAT_Pin         GPIO_PIN_0   // P5: B0
 
-#define APP_P10_OE_GPIO_Port    GPIOD
-#define APP_P10_OE_Pin          GPIO_PIN_5
+// OE / EN
+#define APP_P10_OE_GPIO_Port    GPIOB
+#define APP_P10_OE_Pin          GPIO_PIN_1   // P5: B1
 
-#define APP_P10_A_GPIO_Port     GPIOD
-#define APP_P10_A_Pin           GPIO_PIN_6
+// Address A/B
+#define APP_P10_A_GPIO_Port     GPIOA
+#define APP_P10_A_Pin           GPIO_PIN_3   // P4: A3
 
-#define APP_P10_B_GPIO_Port     GPIOD
-#define APP_P10_B_Pin           GPIO_PIN_7
+#define APP_P10_B_GPIO_Port     GPIOA
+#define APP_P10_B_Pin           GPIO_PIN_0   // P4: A0
 
 /*
-// C hatti varsa:
-#define APP_P10_C_GPIO_Port     GPIOD
-#define APP_P10_C_Pin           GPIO_PIN_8
+// C hatti varsa (P4 uzerinde PC0 etiketi gorunur, uygunsa kullan):
+#define APP_P10_C_GPIO_Port     GPIOC
+#define APP_P10_C_Pin           GPIO_PIN_0
 */
+
