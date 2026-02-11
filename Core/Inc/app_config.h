@@ -72,7 +72,8 @@
 #define APP_P10_OE_ACTIVE_LOW 1
 
 /* Panelde C adres hatti varsa 1 yap (A/B/C) */
-#define APP_P10_HAS_C 0
+//#define APP_P10_HAS_C 0   // ESKI
+#define APP_P10_HAS_C 1     // YENI: C hattini kullan (1/8 scan)
 
 /* Bit kaydirma yonu. Ters cikarsa 0 yap. */
 #define APP_P10_SHIFT_MSB_FIRST 1
@@ -120,9 +121,24 @@
 #define APP_P10_B_GPIO_Port     GPIOA
 #define APP_P10_B_Pin           GPIO_PIN_0   // P4: A0
 
+// C hatti (P4 uzerinde PC0 etiketi gorunur, uygunsa kullan):
+// (ESKI hali asagida yorumda duruyor)
+#define APP_P10_C_GPIO_Port     GPIOC
+#define APP_P10_C_Pin           GPIO_PIN_0
+
 /*
-// C hatti varsa (P4 uzerinde PC0 etiketi gorunur, uygunsa kullan):
+ESKI (yorumlu) blok:
 #define APP_P10_C_GPIO_Port     GPIOC
 #define APP_P10_C_Pin           GPIO_PIN_0
 */
+
+/* Guvenlik: C aktifken C pinleri tanimli olmalı */
+#if APP_P10_HAS_C
+#ifndef APP_P10_C_GPIO_Port
+#error "APP_P10_HAS_C=1 ama APP_P10_C_GPIO_Port tanimli degil"
+#endif
+#ifndef APP_P10_C_Pin
+#error "APP_P10_HAS_C=1 ama APP_P10_C_Pin tanimli degil"
+#endif
+#endif
 
