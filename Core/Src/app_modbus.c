@@ -13,6 +13,13 @@
 #include <stddef.h>
 #include <string.h>
 
+/* ------------------ Unit ID ------------------ */
+
+/* ESKI: Unit ID sabit tanim yoktu, gelen UID aynen echo ediliyordu */
+#ifndef APP_MODBUS_UNIT_ID
+#define APP_MODBUS_UNIT_ID 10u
+#endif
+
 /* ------------------ helpers ------------------ */
 
 static uint16_t be16_rd(const uint8_t *p) {
@@ -184,14 +191,32 @@ static void serve_conn(struct netconn *c)
           const size_t adu_len = (size_t)6 + (size_t)mlen; /* (TID+PID+LEN)=6 + LEN */
           if (used < adu_len) break; /* wait more */
 
+          /* ESKI:
           const uint8_t uid = rx[6];
+          */
+          const uint8_t uid_req = rx[6];
+
+          /* YENI: UID filtrele (UID=10 degilse yok say) */
+          if (uid_req != (uint8_t)APP_MODBUS_UNIT_ID) {
+            /* Bu ADU'yu tuket, cevap verme */
+            const size_t rem_drop = used - adu_len;
+            if (rem_drop > 0) memmove(rx, rx + adu_len, rem_drop);
+            used = rem_drop;
+            continue;
+          }
+
           const uint8_t *pdu = &rx[7];
           const uint16_t pdu_len = (uint16_t)(adu_len - 7);
 
           uint8_t tx[260];
           be16_wr(&tx[0], tid);
           be16_wr(&tx[2], 0);
+
+          /* ESKI:
           tx[6] = uid;
+          */
+          /* YENI: her zaman Unit ID = 10 ile cevap ver */
+          tx[6] = (uint8_t)APP_MODBUS_UNIT_ID;
 
           int resp_pdu_len = handle_pdu(pdu, pdu_len, &tx[7], (uint16_t)(sizeof(tx) - 7));
           if (resp_pdu_len > 0) {
@@ -247,3 +272,4 @@ void APP_ModbusTask(void *argument)
     }
   }
 }
+
